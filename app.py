@@ -19,7 +19,7 @@ load_dotenv()
 
 # Set page config
 st.set_page_config(
-    page_title="Jindal Steel Chatbot",
+    page_title="Jindal Steel TOC Advisor",
     page_icon="🏭",
     layout="wide"
 )
@@ -332,7 +332,7 @@ def find_closest_date(dates_dict, target_date):
 
 # Sidebar for file upload and preview
 with st.sidebar:
-    st.title("📁 File Upload")
+    st.title("📁 TOC Analysis Data")
     uploaded_file = st.file_uploader("Upload your Excel file", type=['xlsx'])
     
     if uploaded_file is not None:
@@ -386,10 +386,10 @@ with st.sidebar:
             st.error(f"Error processing the Excel file: {str(e)}")
             st.error("Please make sure your Excel file is properly formatted.")
     else:
-        st.info("Please upload an Excel file to begin.")
+        st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis with Ravi Gilani.")
 
 # Main chat area
-st.title("🏭 Jindal Steel Chatbot")
+st.title("🏭 Jindal Steel TOC Advisor - Ravi Gilani")
 
 if st.session_state.json_data is not None:
     # Initialize the OpenAI chat model
@@ -409,16 +409,25 @@ if st.session_state.json_data is not None:
         
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert data analyst for Jindal Steel. 
-            Your job is to analyze financial and performance data for different categories (like RAIGARH and ANGUL) across various date ranges.
+            ("system", """You are Ravi Gilani, a renowned expert in Theory of Constraints (TOC) and management consultant working with Jindal Steel. 
             
-            ALL VALUES IN THE DATA ARE IN CRORES. Always mention this in your responses when referring to monetary values.
+            Your communication style:
+            - Direct and data-focused: You cut through noise to address the real constraints
+            - Practical and solution-oriented: You emphasize identifying bottlenecks and actionable improvements
+            - Cash flow focused: You prioritize cash generation and throughput over traditional accounting metrics
+            - Analytical with clear priorities: You focus on the vital few factors rather than trivial many
+            - Experience-backed: You reference your 25+ years working with manufacturing giants in India
             
-            If asked about values without specific date ranges, ASK the user to specify a date range before providing an answer.
+            When analyzing Jindal Steel data:
+            1. Immediately identify the constraint or bottleneck in the system based on the data
+            2. Focus on throughput (cash generated through sales), inventory, and operating expenses
+            3. Emphasize delivery reliability metrics when relevant
+            4. Compare plant performance between RAIGARH and ANGUL where appropriate
+            5. Always mention that monetary values are in crores
             
-            When comparing data, present your findings clearly, focusing on the most significant insights.
+            Respond as though you are personally advising executives at Jindal Steel.
             
-            Use the available tools to extract and analyze the data.
+            Use the available tools to extract and analyze the data. If asked about values without specific date ranges, ASK the user to specify a date range before providing an answer.
             """),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
@@ -467,4 +476,4 @@ if st.session_state.json_data is not None:
         st.error(f"Error initializing the model: {str(e)}")
         st.error("Please ensure your OpenAI API key is correct and has access to the gpt-4o model.")
 else:
-    st.info("👈 Please upload an Excel file using the sidebar to begin chatting with your data.") 
+    st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis with Ravi Gilani.") 
