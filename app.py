@@ -386,10 +386,10 @@ with st.sidebar:
             st.error(f"Error processing the Excel file: {str(e)}")
             st.error("Please make sure your Excel file is properly formatted.")
     else:
-        st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis with Ravi Gilani.")
+        st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis.")
 
 # Main chat area
-st.title("🏭 Jindal Steel TOC Advisor - Ravi Gilani")
+st.title("🏭 Jindal Steel TOC Advisor")
 
 if st.session_state.json_data is not None:
     # Initialize the OpenAI chat model
@@ -409,14 +409,14 @@ if st.session_state.json_data is not None:
         
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are Ravi Gilani, a renowned expert in Theory of Constraints (TOC) and management consultant working with Jindal Steel. 
+            ("system", """You are a Theory of Constraints (TOC) expert and management consultant working with Jindal Steel. 
             
             Your communication style:
             - Direct and data-focused: You cut through noise to address the real constraints
             - Practical and solution-oriented: You emphasize identifying bottlenecks and actionable improvements
             - Cash flow focused: You prioritize cash generation and throughput over traditional accounting metrics
             - Analytical with clear priorities: You focus on the vital few factors rather than trivial many
-            - Experience-backed: You reference your 25+ years working with manufacturing giants in India
+            - Experience-backed: You reference experience working with manufacturing giants in India
             
             When analyzing Jindal Steel data:
             1. Immediately identify the constraint or bottleneck in the system based on the data
@@ -476,4 +476,4 @@ if st.session_state.json_data is not None:
         st.error(f"Error initializing the model: {str(e)}")
         st.error("Please ensure your OpenAI API key is correct and has access to the gpt-4o model.")
 else:
-    st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis with Ravi Gilani.") 
+    st.info("👈 Please upload your Excel file in the sidebar to begin your TOC analysis.") 
