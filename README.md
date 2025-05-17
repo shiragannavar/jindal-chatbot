@@ -1,29 +1,30 @@
-# Jindal Steel Chatbot
+# Jindal Steel TOC Advisor
 
-An AI-powered chatbot built to analyze and visualize data from Excel files for Jindal Steel. This project provides a user-friendly interface to query financial and operational data across different categories and time periods.
+An AI-powered Theory of Constraints (TOC) advisor built to analyze and provide strategic insights from Excel data for Jindal Steel. This application helps identify bottlenecks, improve throughput, and optimize cash flow based on financial and operational data.
 
 ## Features
 
-- **Excel Data Processing**: Upload Excel files with financial/operational data
-- **Multi-category Analysis**: Analyze data across OVERALL, RAIGARH, and ANGUL categories
-- **Date Range Support**: Query data for specific time periods
-- **AI-Powered Insights**: Natural language queries to get insights from your data
-- **Data Visualization**: Clean presentation of financial information
+- **Theory of Constraints Analysis**: Identify system constraints and bottlenecks
+- **Cash Flow Optimization**: Focus on throughput and operational expenses
+- **Multi-plant Comparison**: Analyze data across OVERALL, RAIGARH, and ANGUL plants
+- **Date Range Analysis**: Query data for specific time periods
+- **Strategic Advisor**: Get expert TOC-based recommendations and insights
+- **Data Visualization**: Clean presentation of financial metrics in crores
 
 ## Technologies Used
 
 - **Streamlit**: For the web interface
 - **LangChain**: For conversational AI and agent functionality
-- **OpenAI**: Powering the intelligent chatbot with GPT-4o
+- **OpenAI**: Powering the intelligent advisor with GPT-4o
 - **Pandas**: For data processing
 - **Python**: Programming language
 
 ## Usage
 
-1. Upload your Excel file with financial data
-2. Ask questions about your data in natural language
-3. Get AI-powered insights and analysis
-4. Compare data across different categories and time periods
+1. Upload your Excel file with financial and operational data
+2. Ask questions about constraints, throughput, and operational metrics
+3. Get TOC-focused analysis and strategic recommendations
+4. Compare performance across different plants and time periods
 
 ## Getting Started
 
@@ -34,7 +35,8 @@ An AI-powered chatbot built to analyze and visualize data from Excel files for J
 
 ## Example Queries
 
-- "What was the EBITDA for RAIGARH in June 2022?"
-- "Compare Net Revenue between RAIGARH and ANGUL for Q1 2023"
-- "Show me the Cash Score trend for OVERALL across all dates"
-- "What were the Operational Expenses for ANGUL in July 2022?" 
+- "What are the main constraints limiting throughput at RAIGARH in June 2022?"
+- "Compare cash generation between RAIGARH and ANGUL for Q1 2023"
+- "Show me the delivery reliability metrics for OVERALL across all dates"
+- "What's the key bottleneck affecting performance at ANGUL in the latest period?"
+- "How can we improve cash flow based on the current operational data?" 
