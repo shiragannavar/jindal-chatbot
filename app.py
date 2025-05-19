@@ -799,6 +799,14 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             # Explicitly set to categorical and show all categories
             fig.update_xaxes(type='category')
             
+            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            x_values = df[x_axis].tolist()
+            fig.update_xaxes(
+                tickmode='array',
+                tickvals=list(range(len(x_values))),
+                ticktext=x_values
+            )
+            
             # Add text labels for the data points
             fig.update_traces(
                 textposition="top center",
@@ -814,6 +822,14 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             
             # Explicitly set to categorical
             fig.update_xaxes(type='category')
+            
+            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            x_values = df[x_axis].tolist()
+            fig.update_xaxes(
+                tickmode='array',
+                tickvals=list(range(len(x_values))),
+                ticktext=x_values
+            )
             
             if is_financial and fig is not None:
                 fig.update_traces(hovertemplate=hover_template)
@@ -831,6 +847,14 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             
             # Explicitly set to categorical
             fig.update_xaxes(type='category')
+            
+            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            x_values = df[x_axis].tolist()
+            fig.update_xaxes(
+                tickmode='array',
+                tickvals=list(range(len(x_values))),
+                ticktext=x_values
+            )
             
             if is_financial and fig is not None:
                 fig.update_traces(hovertemplate=hover_template)
