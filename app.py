@@ -767,8 +767,6 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         if is_financial:
             if 'y' not in labels:
                 labels['y'] = f"{y_axis} (₹ Cr)"
-            elif 'Cr' not in labels['y'] and '₹' not in labels['y']:
-                labels['y'] = f"{labels['y']} (₹ Cr)"
             
             # Special formatting for hover data - make sure data is properly formatted
             hover_template = "%{y:.2f} ₹ Cr"
@@ -803,57 +801,70 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             st.write(f"Debug create_visualization: Final DataFrame used for plotting:")
             st.dataframe(df)
             
-            # Create explicit plot with named columns to avoid auto-detection
-            fig = px.line(
-                df, 
-                x=df[x_axis],
-                y=df[y_axis],
-                title=title, 
-                labels=labels, 
-                markers=True
-            )
-            
-            # Explicitly set to categorical and show all categories
-            fig.update_xaxes(type='category')
-            
-            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            # Extract the exact x and y values
             x_values = df[x_axis].tolist()
-            fig.update_xaxes(
-                tickmode='array',
-                tickvals=list(range(len(x_values))),
-                ticktext=x_values
+            y_values = df[y_axis].tolist()
+            
+            # Print the actual values being plotted
+            st.write(f"Debug create_visualization: X values: {x_values}")
+            st.write(f"Debug create_visualization: Y values: {y_values}")
+            
+            # Instead of px.line, create a Figure and add a Scatter trace manually
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=x_values, 
+                    y=y_values,
+                    mode='lines+markers+text',
+                    text=[f"{y:.1f}" for y in y_values],
+                    textposition="top center",
+                    name=y_axis
+                )
             )
             
-            # Add text labels for the data points
-            fig.update_traces(
-                textposition="top center",
-                texttemplate="%{y:.1f}",
-                textfont=dict(size=12)
+            # Add title and labels
+            fig.update_layout(
+                title=title,
+                xaxis_title=labels.get('x', x_axis),
+                yaxis_title=labels.get('y', y_axis)
             )
+            
+            # Ensure x-axis shows categorical values correctly
+            fig.update_xaxes(type='category')
             
             if is_financial and fig is not None:
                 fig.update_traces(hovertemplate=hover_template)
                 
         elif chart_type == "bar":
-            # Create explicit plot with named columns to avoid auto-detection
-            fig = px.bar(
-                df, 
-                x=df[x_axis],
-                y=df[y_axis],
-                title=title, 
-                labels=labels
-            )
-            
-            # Explicitly set to categorical
-            fig.update_xaxes(type='category')
-            
-            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            # Extract the exact x and y values
             x_values = df[x_axis].tolist()
-            fig.update_xaxes(
-                tickmode='array',
-                tickvals=list(range(len(x_values))),
-                ticktext=x_values
+            y_values = df[y_axis].tolist()
+            
+            # Print the actual values being plotted
+            st.write(f"Debug create_visualization: X values: {x_values}")
+            st.write(f"Debug create_visualization: Y values: {y_values}")
+            
+            # Create a Figure and add a Bar trace manually
+            fig = go.Figure()
+            fig.add_trace(
+                go.Bar(
+                    x=x_values, 
+                    y=y_values,
+                    text=[f"{y:.1f}" for y in y_values],
+                    textposition="outside",
+                    name=y_axis
+                )
             )
+            
+            # Add title and labels
+            fig.update_layout(
+                title=title,
+                xaxis_title=labels.get('x', x_axis),
+                yaxis_title=labels.get('y', y_axis)
+            )
+            
+            # Ensure x-axis shows categorical values correctly
+            fig.update_xaxes(type='category')
             
             if is_financial and fig is not None:
                 fig.update_traces(hovertemplate=hover_template)
@@ -867,29 +878,37 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                 fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
                 
         elif chart_type == "scatter":
-            # Create explicit plot with named columns to avoid auto-detection
-            fig = px.scatter(
-                df, 
-                x=df[x_axis],
-                y=df[y_axis],
-                title=title, 
-                labels=labels
-            )
-            
-            # Explicitly set to categorical
-            fig.update_xaxes(type='category')
-            
-            # CRITICAL FIX: Force explicit X-axis tick labels with the actual category values
+            # Extract the exact x and y values
             x_values = df[x_axis].tolist()
-            fig.update_xaxes(
-                tickmode='array',
-                tickvals=list(range(len(x_values))),
-                ticktext=x_values
+            y_values = df[y_axis].tolist()
+            
+            # Print the actual values being plotted
+            st.write(f"Debug create_visualization: X values: {x_values}")
+            st.write(f"Debug create_visualization: Y values: {y_values}")
+            
+            # Create a Figure and add a Scatter trace manually
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=x_values, 
+                    y=y_values,
+                    mode='markers+text',
+                    text=[f"{y:.1f}" for y in y_values],
+                    textposition="top center",
+                    name=y_axis
+                )
             )
             
-            if is_financial and fig is not None:
-                fig.update_traces(hovertemplate=hover_template)
-                
+            # Add title and labels
+            fig.update_layout(
+                title=title,
+                xaxis_title=labels.get('x', x_axis),
+                yaxis_title=labels.get('y', y_axis)
+            )
+            
+            # Ensure x-axis shows categorical values correctly
+            fig.update_xaxes(type='category')
+
         else:
             return json.dumps({"error": f"Unsupported visualization type: {chart_type}. Supported types: line, bar, pie, scatter."})
 
@@ -904,6 +923,12 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                         tickprefix="₹ ",
                         ticksuffix=" Cr"
                     )
+                )
+                
+            # Also update the hover template for line, bar, and scatter charts
+            if chart_type in ["line", "bar", "scatter"]:
+                fig.update_traces(
+                    hovertemplate="<b>%{x}</b><br>%{y:.2f} ₹ Cr<extra></extra>"
                 )
                 
             # Adjust Y-axis range for better data visibility
