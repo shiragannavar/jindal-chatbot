@@ -9,14 +9,16 @@ An AI-powered Theory of Constraints (TOC) advisor built to analyze and provide s
 - **Multi-plant Comparison**: Analyze data across OVERALL, RAIGARH, and ANGUL plants
 - **Date Range Analysis**: Query data for specific time periods
 - **Strategic Advisor**: Get expert TOC-based recommendations and insights
-- **Data Visualization**: Clean presentation of financial metrics in crores
+- **Advanced Data Visualization**: Clean presentation of financial metrics in Indian Rupees (₹) and Crores with interactive charts
+- **Metric Trending**: Visualize performance trends over time with accurate date-based charts
 
 ## Technologies Used
 
 - **Streamlit**: For the web interface
 - **LangChain**: For conversational AI and agent functionality
-- **OpenAI**: Powering the intelligent advisor with o3
+- **OpenAI**: Powering the intelligent advisor with GPT-4 Turbo
 - **Pandas**: For data processing
+- **Plotly**: For interactive financial visualizations
 - **Python**: Programming language
 
 ## Usage
@@ -25,6 +27,7 @@ An AI-powered Theory of Constraints (TOC) advisor built to analyze and provide s
 2. Ask questions about constraints, throughput, and operational metrics
 3. Get TOC-focused analysis and strategic recommendations
 4. Compare performance across different plants and time periods
+5. View interactive charts showing trends and comparisons
 
 ## Getting Started
 
@@ -39,4 +42,14 @@ An AI-powered Theory of Constraints (TOC) advisor built to analyze and provide s
 - "Compare cash generation between RAIGARH and ANGUL for Q1 2023"
 - "Show me the delivery reliability metrics for OVERALL across all dates"
 - "What's the key bottleneck affecting performance at ANGUL in the latest period?"
-- "How can we improve cash flow based on the current operational data?" 
+- "How can we improve cash flow based on the current operational data?"
+- "Show me the Net Revenue trend for April 2025"
+- "Visualize the Cash Score comparison between RAIGARH and ANGUL for the last month"
+
+## Recent Updates
+
+- Enhanced Excel data processing to better handle financial formats with ₹ and Cr notation
+- Improved chart visualization with proper display of date-based X-axis labels
+- Fixed Y-axis data representation to ensure accurate display of financial values
+- Added better debugging and data validation for more reliable analysis
+- Optimized memory management for improved performance with large datasets 
