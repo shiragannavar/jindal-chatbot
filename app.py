@@ -708,6 +708,10 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                         item[better_y_name] = item.pop("value")
                 y_axis = better_y_name
                 st.write(f"Debug create_visualization: Renamed 'value' key to '{better_y_name}' for better visualization")
+                
+                # Critical fix: Print the transformed data for verification
+                st.write("Debug create_visualization: Transformed data (after renaming 'value'):")
+                st.write(data[:min(3, len(data))])
 
         # Find the first key that could be an x-axis if not specified
         if not x_axis and len(data) > 0:
@@ -794,7 +798,20 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         # Create figure with explicit categorical x-axis
         if chart_type == "line":
             # Create basic line chart
-            fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True)
+            st.write(f"Debug create_visualization: Creating line chart with x={x_axis}, y={y_axis}")
+            # Ensure data is correct before creating chart
+            st.write(f"Debug create_visualization: Final DataFrame used for plotting:")
+            st.dataframe(df)
+            
+            # Create explicit plot with named columns to avoid auto-detection
+            fig = px.line(
+                df, 
+                x=df[x_axis],
+                y=df[y_axis],
+                title=title, 
+                labels=labels, 
+                markers=True
+            )
             
             # Explicitly set to categorical and show all categories
             fig.update_xaxes(type='category')
@@ -818,7 +835,14 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                 fig.update_traces(hovertemplate=hover_template)
                 
         elif chart_type == "bar":
-            fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels)
+            # Create explicit plot with named columns to avoid auto-detection
+            fig = px.bar(
+                df, 
+                x=df[x_axis],
+                y=df[y_axis],
+                title=title, 
+                labels=labels
+            )
             
             # Explicitly set to categorical
             fig.update_xaxes(type='category')
@@ -843,7 +867,14 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                 fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
                 
         elif chart_type == "scatter":
-            fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels)
+            # Create explicit plot with named columns to avoid auto-detection
+            fig = px.scatter(
+                df, 
+                x=df[x_axis],
+                y=df[y_axis],
+                title=title, 
+                labels=labels
+            )
             
             # Explicitly set to categorical
             fig.update_xaxes(type='category')
