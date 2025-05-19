@@ -224,12 +224,12 @@ def excel_to_json(uploaded_file):
                     try:
                         # Try to extract numeric value cleanly
                         # Remove commas, %, $, ₹ symbols that might be in financial data
-                        cleaned_value_str = cell_value_str.replace(',', '').replace('%', '').replace('$', '').replace('₹', '')
+                        cleaned_value_str = cell_value_str.replace(',', '').replace('%', '').replace('$', '').replace('₹', '').replace(' Cr', '').strip()
                         value = float(cleaned_value_str)
                         
                         # Add to tracking for important metrics
                         if subcategory_name in ["Net Revenue", "Cash Score"]:
-                            st.write(f"Debug: [{current_main_category}] Excel row {i+1}, col {col_idx+1}: Converting '{cell_value_str}' to numeric: {value}")
+                            st.write(f"Debug: [{current_main_category}] Excel row {i+1}, col {col_idx+1}: Converting '{cell_value_str}' to numeric: {value} (cleaned: '{cleaned_value_str}')")
                             value_tracking = pd.concat([value_tracking, pd.DataFrame({
                                 "Category": [current_main_category],
                                 "Date": [date_str],
@@ -242,7 +242,7 @@ def excel_to_json(uploaded_file):
                         # If conversion fails, keep as string
                         value = cell_value_str
                         if subcategory_name in ["Net Revenue", "Cash Score"]:
-                            st.write(f"Debug: [{current_main_category}] Excel row {i+1}, col {col_idx+1}: Keeping as string: '{cell_value_str}'")
+                            st.write(f"Debug: [{current_main_category}] Excel row {i+1}, col {col_idx+1}: Keeping as string: '{cell_value_str}' (conversion failed)")
                         
                     # Store the value in our result structure
                     if date_str not in result[current_main_category]["dates"]:
@@ -347,10 +347,13 @@ def get_data_for_category(query: str = "{\"category\": \"OVERALL\"}") -> str: # 
                     # Ensure numeric values are returned as numbers, not strings
                     if isinstance(value, str):
                         try:
-                            value = float(value.replace(',', '').replace('%', ''))
-                            st.write(f"Debug get_data_for_category: Converted string value to number: {value}")
+                            # More robust handling of numeric string formats (commas, currency symbols, etc.)
+                            clean_value = value.replace(',', '').replace('₹', '').replace('%', '').replace(' Cr', '').strip()
+                            value = float(clean_value)
+                            st.write(f"Debug get_data_for_category: Converted string value '{clean_value}' to number: {value}")
                         except ValueError:
                             # Keep as string if conversion fails
+                            st.write(f"Debug get_data_for_category: Could not convert '{value}' to number, keeping as string")
                             pass
                     
                     return json.dumps({
@@ -372,9 +375,13 @@ def get_data_for_category(query: str = "{\"category\": \"OVERALL\"}") -> str: # 
                 for subcat, val in date_specific_data.items():
                     if isinstance(val, str):
                         try:
-                            processed_data[subcat] = float(val.replace(',', '').replace('%', ''))
+                            # More thorough cleaning of formatted strings with currency symbols, commas, etc.
+                            clean_val = val.replace(',', '').replace('₹', '').replace('%', '').replace(' Cr', '').strip()
+                            processed_data[subcat] = float(clean_val)
+                            st.write(f"Debug get_data_for_category: Converted string '{val}' to number: {processed_data[subcat]}")
                         except ValueError:
                             processed_data[subcat] = val
+                            st.write(f"Debug get_data_for_category: Could not convert '{val}' to number, keeping as string")
                     else:
                         processed_data[subcat] = val
                 
@@ -699,11 +706,18 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         if df.empty:
             return json.dumps({"error": "Data converted to empty DataFrame. Cannot plot."})
 
-        # Ensure numeric values are actually numeric
+        # PRE-PROCESS: Convert all string values that look like numbers to actual numbers
+        # This is critical - do this BEFORE attempting to identify axes
         for col in df.columns:
             if col != x_axis:  # Don't convert x-axis if it's dates or categories
+                # First handle commas in string values - important for Indian number format
+                if df[col].dtype == 'object':
+                    # Try to clean and convert strings with commas, rupee symbols, etc.
+                    df[col] = df[col].apply(lambda x: str(x).replace(',', '').replace('₹', '').replace(' Cr', '') 
+                                            if isinstance(x, str) else x)
+                
+                # Then try to convert to numeric
                 try:
-                    # Try to convert to numeric, coercing errors to NaN
                     df[col] = pd.to_numeric(df[col], errors='coerce')
                     st.write(f"Debug create_visualization: Converted column '{col}' to numeric. Sample: {df[col].head()}")
                 except:
@@ -728,7 +742,7 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             elif 'Cr' not in labels['y'] and '₹' not in labels['y']:
                 labels['y'] = f"{labels['y']} (₹ Cr)"
             
-            # Add ₹ symbol to hover template for financial values
+            # Special formatting for hover data - make sure data is properly formatted
             hover_template = "%{y:.2f} ₹ Cr"
         else:
             hover_template = None
@@ -739,6 +753,8 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         st.write(f"Debug create_visualization: Creating {chart_type} chart with x={x_axis}, y={y_axis}")
         if y_axis in df.columns:
             st.write(f"Debug create_visualization: Data range for {y_axis}: min={df[y_axis].min()}, max={df[y_axis].max()}, mean={df[y_axis].mean()}")
+            # Display the actual values that will be plotted
+            st.write(f"Debug create_visualization: Actual values being plotted for {y_axis}: {df[y_axis].tolist()}")
 
         # Create figure based on chart type
         if chart_type == "line":
@@ -767,6 +783,15 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         if is_financial and fig is not None:
             title = f"{title} (₹ in Crores)" if "Crores" not in title and "₹" not in title else title
             fig.update_layout(title=title)
+            
+            # Add rupee symbol to Y-axis tick labels
+            if chart_type != "pie":
+                fig.update_layout(
+                    yaxis=dict(
+                        tickprefix="₹ ",
+                        ticksuffix=" Cr"
+                    )
+                )
 
         if fig is not None:
             # Display the chart immediately in Streamlit
@@ -1090,6 +1115,13 @@ with st.sidebar:
                 del st.session_state.toc_agent
             if "last_chart_figure_json" in st.session_state:
                 del st.session_state.last_chart_figure_json
+            if "last_chart_figure" in st.session_state:
+                del st.session_state.last_chart_figure
+            if "agent_memory" in st.session_state:
+                del st.session_state.agent_memory
+                st.session_state.agent_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+            if "messages" in st.session_state:
+                st.session_state.messages = []
                 
             json_data = excel_to_json(uploaded_file)
             if json_data:
@@ -1159,14 +1191,37 @@ if st.session_state.get("json_data") is not None:
                         # First check if a chart figure is directly stored
                         if "last_chart_figure" in st.session_state and st.session_state.last_chart_figure is not None:
                             st.write("### Generated Chart")
-                            st.plotly_chart(st.session_state.last_chart_figure, use_container_width=True)
+                            # Ensure the figure is properly configured
+                            chart_fig = st.session_state.last_chart_figure
+                            # Add extra validation to ensure numeric values are properly displayed
+                            if hasattr(chart_fig, 'data') and len(chart_fig.data) > 0:
+                                # Show the figure with proper formatting
+                                st.plotly_chart(chart_fig, use_container_width=True)
+                                # Display the raw data for verification
+                                with st.expander("View chart data"):
+                                    if hasattr(chart_fig, 'data') and len(chart_fig.data) > 0:
+                                        # Extract and display the data points for verification
+                                        for trace_idx, trace in enumerate(chart_fig.data):
+                                            if hasattr(trace, 'y') and trace.y is not None:
+                                                st.write(f"Series {trace_idx+1} data points: {trace.y}")
+                            else:
+                                st.error("Chart has no data to display")
                             st.session_state.last_chart_figure = None  # Clear after displaying
                         # Fallback to json representation if needed
                         elif "last_chart_figure_json" in st.session_state and st.session_state.last_chart_figure_json:
                             try:
                                 st.write("### Generated Chart")
                                 fig = go.Figure(json.loads(st.session_state.last_chart_figure_json))
-                                st.plotly_chart(fig, use_container_width=True)
+                                # Add validation for the reconstructed figure
+                                if hasattr(fig, 'data') and len(fig.data) > 0:
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    # Display the raw data for verification
+                                    with st.expander("View chart data"):
+                                        for trace_idx, trace in enumerate(fig.data):
+                                            if hasattr(trace, 'y') and trace.y is not None:
+                                                st.write(f"Series {trace_idx+1} data points: {trace.y}")
+                                else:
+                                    st.error("Reconstructed chart has no data to display")
                             except Exception as chart_e:
                                 st.error(f"Error displaying chart: {chart_e}")
                             finally:
