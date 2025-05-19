@@ -696,6 +696,19 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         if not data or not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
             return json.dumps({"error": "Invalid or empty data provided. Data must be a list of dictionaries."})
 
+        # IMPORTANT: Check data structure to ensure correct keys are used
+        # If a generic "value" key is used, rename it to match the y-axis label for better plots
+        if len(data) > 0 and "value" in data[0] and not y_axis:
+            # Extract a better column name from the labels if available
+            better_y_name = labels.get("y", "").split(" ")[0] if "y" in labels else "Value"
+            if better_y_name and better_y_name not in ["(₹", "Cr)"]:
+                # Rename the "value" key to the better name in all data items
+                for item in data:
+                    if "value" in item:
+                        item[better_y_name] = item.pop("value")
+                y_axis = better_y_name
+                st.write(f"Debug create_visualization: Renamed 'value' key to '{better_y_name}' for better visualization")
+
         # Create a DataFrame from the data for easier plotting with Plotly Express
         df = pd.DataFrame(data)
         
@@ -756,29 +769,77 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
             # Display the actual values that will be plotted
             st.write(f"Debug create_visualization: Actual values being plotted for {y_axis}: {df[y_axis].tolist()}")
 
-        # Create figure based on chart type
-        if chart_type == "line":
-            fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True)
-            if is_financial and fig is not None:
-                fig.update_traces(hovertemplate=hover_template)
-        elif chart_type == "bar":
-            fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels)
-            if is_financial and fig is not None:
-                fig.update_traces(hovertemplate=hover_template)
-        elif chart_type == "pie":
-            # For pie charts, 'names' would be the category column and 'values' the numeric column.
-            # The agent needs to specify this in the 'x' (names) and 'y' (values) params in the query.
-            if not x_axis or not y_axis:
-                 return json.dumps({"error": "For pie chart, please specify 'x' for names and 'y' for values in the query."})
-            fig = px.pie(df, names=x_axis, values=y_axis, title=title)
-            if is_financial and fig is not None:
-                fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
-        elif chart_type == "scatter":
-            fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels)
-            if is_financial and fig is not None:
-                fig.update_traces(hovertemplate=hover_template)
+        # CRITICAL FIX: For date-based X-axis, ensure it's treated as a category, not numeric
+        if x_axis and x_axis in df.columns and df[x_axis].dtype == 'object':
+            # Convert the date column to category type for proper display
+            df[x_axis] = df[x_axis].astype('category')
+            
+            # Ensure the values are plotted at explicit points (not interpolated index values)
+            if chart_type == "line":
+                st.write(f"Debug create_visualization: Converting date column '{x_axis}' to categorical for proper display")
+                # Create custom x-values based on explicit categories
+                x_categories = list(df[x_axis].unique())
+                
+                # Create figure based on chart type with explicitly specified category ordering
+                fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True,
+                             category_orders={x_axis: x_categories})
+                
+                # Add text labels for the data points
+                fig.update_traces(
+                    textposition="top center",
+                    texttemplate="%{y:.1f}",
+                    textfont=dict(size=12)
+                )
+                
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
+                    
+                # Set x-axis tick mode to use all categories (dates)
+                fig.update_xaxes(type='category', tickmode='array', tickvals=x_categories)
+            
+            elif chart_type == "bar":
+                fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels, 
+                            category_orders={x_axis: list(df[x_axis].unique())})
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
+            
+            elif chart_type == "scatter":
+                fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels,
+                                category_orders={x_axis: list(df[x_axis].unique())})
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
         else:
-            return json.dumps({"error": f"Unsupported visualization type: {chart_type}. Supported types: line, bar, pie, scatter."})
+            # Standard plotting without categorical handling for non-date X-axis
+            if chart_type == "line":
+                fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True)
+                
+                # Add text labels for the data points
+                fig.update_traces(
+                    textposition="top center",
+                    texttemplate="%{y:.1f}",
+                    textfont=dict(size=12)
+                )
+                
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
+            elif chart_type == "bar":
+                fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels)
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
+            elif chart_type == "pie":
+                # For pie charts, 'names' would be the category column and 'values' the numeric column.
+                # The agent needs to specify this in the 'x' (names) and 'y' (values) params in the query.
+                if not x_axis or not y_axis:
+                     return json.dumps({"error": "For pie chart, please specify 'x' for names and 'y' for values in the query."})
+                fig = px.pie(df, names=x_axis, values=y_axis, title=title)
+                if is_financial and fig is not None:
+                    fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
+            elif chart_type == "scatter":
+                fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels)
+                if is_financial and fig is not None:
+                    fig.update_traces(hovertemplate=hover_template)
+            else:
+                return json.dumps({"error": f"Unsupported visualization type: {chart_type}. Supported types: line, bar, pie, scatter."})
 
         if is_financial and fig is not None:
             title = f"{title} (₹ in Crores)" if "Crores" not in title and "₹" not in title else title
@@ -792,6 +853,22 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                         ticksuffix=" Cr"
                     )
                 )
+                
+            # Adjust Y-axis range for better data visibility
+            if y_axis in df.columns:
+                y_min = df[y_axis].min()
+                y_max = df[y_axis].max()
+                if not pd.isna(y_min) and not pd.isna(y_max):
+                    # Add a 15% padding above the max value and below the min value for better visibility
+                    y_range = y_max - y_min
+                    y_range_padding = max(y_range * 0.15, 0.5)  # At least 0.5 Cr padding
+                    
+                    # Set Y-axis range with padding (min 0 for financial data unless negative values)
+                    min_bound = min(0, y_min - y_range_padding) if y_min > 0 else y_min - y_range_padding
+                    fig.update_layout(
+                        yaxis_range=[min_bound, y_max + y_range_padding]
+                    )
+                    st.write(f"Debug create_visualization: Adjusted Y-axis range to [{min_bound:.1f}, {y_max + y_range_padding:.1f}]")
 
         if fig is not None:
             # Display the chart immediately in Streamlit
