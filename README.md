@@ -15,7 +15,7 @@ An AI-powered Theory of Constraints (TOC) advisor built to analyze and provide s
 
 - **Streamlit**: For the web interface
 - **LangChain**: For conversational AI and agent functionality
-- **OpenAI**: Powering the intelligent advisor with GPT-4o
+- **OpenAI**: Powering the intelligent advisor with o3
 - **Pandas**: For data processing
 - **Python**: Programming language
 
