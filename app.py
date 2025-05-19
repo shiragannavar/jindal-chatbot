@@ -709,6 +709,17 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                 y_axis = better_y_name
                 st.write(f"Debug create_visualization: Renamed 'value' key to '{better_y_name}' for better visualization")
 
+        # Find the first key that could be an x-axis if not specified
+        if not x_axis and len(data) > 0:
+            for key in data[0].keys():
+                if key.lower() in ['date', 'week', 'period', 'month', 'quarter', 'year', 'time']:
+                    x_axis = key
+                    st.write(f"Debug create_visualization: Auto-detected x-axis as '{x_axis}'")
+                    break
+            if not x_axis:
+                x_axis = list(data[0].keys())[0]  # Take first key as default x-axis
+                st.write(f"Debug create_visualization: Using first key '{x_axis}' as x-axis")
+
         # Create a DataFrame from the data for easier plotting with Plotly Express
         df = pd.DataFrame(data)
         
@@ -722,7 +733,7 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         # PRE-PROCESS: Convert all string values that look like numbers to actual numbers
         # This is critical - do this BEFORE attempting to identify axes
         for col in df.columns:
-            if col != x_axis:  # Don't convert x-axis if it's dates or categories
+            if col != x_axis:  # Don't convert x-axis - keep as labels
                 # First handle commas in string values - important for Indian number format
                 if df[col].dtype == 'object':
                     # Try to clean and convert strings with commas, rupee symbols, etc.
@@ -736,15 +747,15 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
                 except:
                     st.write(f"Debug create_visualization: Column '{col}' could not be converted to numeric. Sample: {df[col].head()}")
 
-        # Determine x and y for plotting if not explicitly given but data structure is simple (e.g. date/value)
-        if not x_axis and len(df.columns) >= 1:
-            x_axis = df.columns[0]
+        # Determine y for plotting if not explicitly given
         if not y_axis and len(df.columns) >= 2:
-            y_axis = df.columns[1]
-        elif not y_axis and len(df.columns) >=1 and chart_type in ["bar", "line"]: # Allow single column for y if x is index
-             y_axis = df.columns[0]
-             if x_axis == y_axis: x_axis = None # Use index for x if x and y are the same single column
-
+            # Find first numeric column for y-axis if not specified
+            for col in df.columns:
+                if col != x_axis and pd.api.types.is_numeric_dtype(df[col]):
+                    y_axis = col
+                    st.write(f"Debug create_visualization: Auto-detected y-axis as numeric column '{y_axis}'")
+                    break
+        
         if not y_axis: # Y-axis is crucial for most plots
             return json.dumps({"error": f"Could not determine Y-axis for plotting. Available columns: {list(df.columns)}"})
 
@@ -760,86 +771,72 @@ def create_visualization(query: str = "{\"type\": \"line\", \"data\": []}") -> s
         else:
             hover_template = None
 
-        fig = None
+        # VERY IMPORTANT: Always treat x-axis as categorical for this specific application
+        if x_axis and x_axis in df.columns:
+            # Explicitly convert to category type, regardless of original format
+            df[x_axis] = df[x_axis].astype(str).astype('category')
+            st.write(f"Debug create_visualization: Treating '{x_axis}' as categorical data for visualization")
+            
+            # Get unique categories in original order from the dataframe
+            x_categories = df[x_axis].tolist()
+            
+            # Debug the categories
+            st.write(f"Debug create_visualization: Categories for '{x_axis}': {x_categories}")
         
         # Debug the data being used for visualization
-        st.write(f"Debug create_visualization: Creating {chart_type} chart with x={x_axis}, y={y_axis}")
         if y_axis in df.columns:
             st.write(f"Debug create_visualization: Data range for {y_axis}: min={df[y_axis].min()}, max={df[y_axis].max()}, mean={df[y_axis].mean()}")
             # Display the actual values that will be plotted
             st.write(f"Debug create_visualization: Actual values being plotted for {y_axis}: {df[y_axis].tolist()}")
 
-        # CRITICAL FIX: For date-based X-axis, ensure it's treated as a category, not numeric
-        if x_axis and x_axis in df.columns and df[x_axis].dtype == 'object':
-            # Convert the date column to category type for proper display
-            df[x_axis] = df[x_axis].astype('category')
+        fig = None
+        
+        # Create figure with explicit categorical x-axis
+        if chart_type == "line":
+            # Create basic line chart
+            fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True)
             
-            # Ensure the values are plotted at explicit points (not interpolated index values)
-            if chart_type == "line":
-                st.write(f"Debug create_visualization: Converting date column '{x_axis}' to categorical for proper display")
-                # Create custom x-values based on explicit categories
-                x_categories = list(df[x_axis].unique())
-                
-                # Create figure based on chart type with explicitly specified category ordering
-                fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True,
-                             category_orders={x_axis: x_categories})
-                
-                # Add text labels for the data points
-                fig.update_traces(
-                    textposition="top center",
-                    texttemplate="%{y:.1f}",
-                    textfont=dict(size=12)
-                )
-                
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
-                    
-                # Set x-axis tick mode to use all categories (dates)
-                fig.update_xaxes(type='category', tickmode='array', tickvals=x_categories)
+            # Explicitly set to categorical and show all categories
+            fig.update_xaxes(type='category')
             
-            elif chart_type == "bar":
-                fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels, 
-                            category_orders={x_axis: list(df[x_axis].unique())})
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
+            # Add text labels for the data points
+            fig.update_traces(
+                textposition="top center",
+                texttemplate="%{y:.1f}",
+                textfont=dict(size=12)
+            )
             
-            elif chart_type == "scatter":
-                fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels,
-                                category_orders={x_axis: list(df[x_axis].unique())})
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
+            if is_financial and fig is not None:
+                fig.update_traces(hovertemplate=hover_template)
+                
+        elif chart_type == "bar":
+            fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels)
+            
+            # Explicitly set to categorical
+            fig.update_xaxes(type='category')
+            
+            if is_financial and fig is not None:
+                fig.update_traces(hovertemplate=hover_template)
+                
+        elif chart_type == "pie":
+            # For pie charts, 'names' would be the category column and 'values' the numeric column.
+            if not x_axis or not y_axis:
+                 return json.dumps({"error": "For pie chart, please specify 'x' for names and 'y' for values in the query."})
+            fig = px.pie(df, names=x_axis, values=y_axis, title=title)
+            if is_financial and fig is not None:
+                fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
+                
+        elif chart_type == "scatter":
+            fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels)
+            
+            # Explicitly set to categorical
+            fig.update_xaxes(type='category')
+            
+            if is_financial and fig is not None:
+                fig.update_traces(hovertemplate=hover_template)
+                
         else:
-            # Standard plotting without categorical handling for non-date X-axis
-            if chart_type == "line":
-                fig = px.line(df, x=x_axis, y=y_axis, title=title, labels=labels, markers=True)
-                
-                # Add text labels for the data points
-                fig.update_traces(
-                    textposition="top center",
-                    texttemplate="%{y:.1f}",
-                    textfont=dict(size=12)
-                )
-                
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
-            elif chart_type == "bar":
-                fig = px.bar(df, x=x_axis, y=y_axis, title=title, labels=labels)
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
-            elif chart_type == "pie":
-                # For pie charts, 'names' would be the category column and 'values' the numeric column.
-                # The agent needs to specify this in the 'x' (names) and 'y' (values) params in the query.
-                if not x_axis or not y_axis:
-                     return json.dumps({"error": "For pie chart, please specify 'x' for names and 'y' for values in the query."})
-                fig = px.pie(df, names=x_axis, values=y_axis, title=title)
-                if is_financial and fig is not None:
-                    fig.update_traces(texttemplate="%{value:.2f} ₹ Cr")
-            elif chart_type == "scatter":
-                fig = px.scatter(df, x=x_axis, y=y_axis, title=title, labels=labels)
-                if is_financial and fig is not None:
-                    fig.update_traces(hovertemplate=hover_template)
-            else:
-                return json.dumps({"error": f"Unsupported visualization type: {chart_type}. Supported types: line, bar, pie, scatter."})
+            return json.dumps({"error": f"Unsupported visualization type: {chart_type}. Supported types: line, bar, pie, scatter."})
 
         if is_financial and fig is not None:
             title = f"{title} (₹ in Crores)" if "Crores" not in title and "₹" not in title else title
