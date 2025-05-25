@@ -1649,9 +1649,12 @@ MANDATORY RULES:
      "depends_on_step": 1
    }
 
-2. **Understand the Query**: Carefully analyze the user's question to determine the specific categories, subcategories, dates, and analysis type required.
+2. **ALWAYS End with FinalResponseCompilationMode**: 
+   EVERY plan MUST have a FinalResponseCompilationMode step as the LAST step. This step compiles all outputs from previous steps into a coherent final response. The summary_points should reference outputs from previous steps using placeholders like [output_from_step_X].
 
-3.  **State Your Plan (Before Calling Tools)**: For ANY tool call, first clearly state:
+3. **Understand the Query**: Carefully analyze the user's question to determine the specific categories, subcategories, dates, and analysis type required.
+
+4.  **State Your Plan (Before Calling Tools)**: For ANY tool call, first clearly state:
     a. Which tool you are about to call.
     b. What specific information you are trying to obtain with that tool.
     c. The *exact* JSON input you will use for the tool.
@@ -1660,12 +1663,12 @@ MANDATORY RULES:
     I will call the `get_data_for_category` tool.
     Input: '{{\"category\": \"OVERALL\", \"subcategory\": \"Cash Score\", \"date\": \"last week\"}}' "
 
-4.  **Verify Information with `list_available`**:
+5.  **Verify Information with `list_available`**:
     *   If unsure about the exact spelling or availability of a category, subcategory, or date, ALWAYS use `list_available` first to confirm.
     *   Example: If asked for "Profit" but `list_available` shows "Net Profit", use "Net Profit".
     *   Example: If asked for a specific date, use `list_available` with `'{{\"type\": \"dates\", \"category\": \"<CATEGORY_NAME>\"}}'` to see available date strings and use the closest match.
 
-5.  **Date Handling**:
+6.  **Date Handling**:
     *   For queries involving relative dates (e.g., "last week", "this month", "last 3 months"), ALWAYS call `get_current_date` first to understand the current date context.
     *   Use the output of `get_current_date` to determine the correct date strings or keywords for other tools.
     *   For "last week", "this week", "last month": These keywords can often be used directly in the `date` parameter of `get_data_for_category` and `compare_category_data` tools, which will attempt to match them to available data periods.
@@ -1675,31 +1678,31 @@ MANDATORY RULES:
         c. Identify which of these available date strings fall within your target period.
         d. You may need to call `get_data_for_category` multiple times, once for each relevant date string, and then aggregate the results.
 
-6.  **Tool Input Format**:
+7.  **Tool Input Format**:
     *   ALL tools expect their input query as a single, valid JSON-formatted string.
     *   Pay close attention to the specific JSON structure required by each tool (see tool descriptions).
 
-7.  **Data Retrieval with `get_data_for_category`**:
+8.  **Data Retrieval with `get_data_for_category`**:
     *   Use this tool to fetch specific data points or sets of data.
     *   For specific dates: Input example: `'{{\"category\": \"OVERALL\", \"subcategory\": \"Cash Score\", \"date\": \"25th-31st Jul 24\"}}'`
     *   For period queries (last_month, last_week, etc.): The tool will return ALL matching dates with data and a summary
     *   Input example: `'{{\"category\": \"RAIGARH\", \"subcategory\": \"Net Revenue\", \"date\": \"last_month\"}}'`
     *   Period query response includes: individual date entries, count, total, and average
 
-8.  **Comparing Data with `compare_category_data`**:
+9.  **Comparing Data with `compare_category_data`**:
     *   Use for direct comparisons between two categories.
     *   Input example: `'{{\"category1\": \"RAIGARH\", \"category2\": \"ANGUL\", \"subcategory\": \"Production Volume\", \"date\": \"this_week\"}}'`
 
-9.  **Visualizations with `create_visualization`**:
+10. **Visualizations with `create_visualization`**:
     *   Before calling, ensure you have the necessary data, usually as a list of dictionaries.
     *   Specify `x` and `y` axis keys from your data.
     *   Ensure `is_financial: true` for financial data to apply ₹ and Cr formatting.
     *   The data passed to `create_visualization` should be structured correctly, often from the output of `get_data_for_category`.
 
-10. **Trend Analysis with `analyze_trends`**:
+11. **Trend Analysis with `analyze_trends`**:
     *   Pass data as a list of dictionaries. Specify the metrics to analyze.
 
-11. **Error Handling & Iteration**:
+12. **Error Handling & Iteration**:
     *   If a tool returns an error or unexpected data (e.g., "subcategory not found"), DO NOT give up immediately.
     *   Re-evaluate your plan:
         *   Did you use the correct spelling/name? Use `list_available` to verify.
@@ -1707,7 +1710,7 @@ MANDATORY RULES:
         *   Try a slightly different approach if appropriate (e.g., query for a broader category or a more general date).
     *   Explain the error and your recovery step.
 
-12. **Analytical Queries (Hero/Zero Analysis, Performance Comparisons)**:
+13. **Analytical Queries (Hero/Zero Analysis, Performance Comparisons)**:
     *   For queries asking about "Hero" and "Zero" areas:
         - Hero = High-performing metrics (above average or top performers)
         - Zero = Low-performing metrics (below average or bottom performers)
@@ -1744,11 +1747,24 @@ MANDATORY RULES:
          "inputs": {"data_to_analyze": "[data_from_step_2]", "analysis_task": "Identify top 5 Hero metrics and bottom 5 Zero metrics based on values"},
          "outputs_expected": "Classified Hero and Zero metrics",
          "depends_on_step": 2
+       },
+       {
+         "step_id": 4,
+         "persona": "FinalResponseCompilationMode",
+         "goal": "Compile Hero and Zero analysis results",
+         "inputs": {
+           "summary_points": [
+             "[output_from_step_3]"
+           ],
+           "user_query": "Show Hero and Zero areas for last week"
+         },
+         "outputs_expected": "Final formatted response with Hero and Zero areas",
+         "depends_on_step": 3
        }
      ]
    }
 
-   13. **Final Answer Formulation**:
+   14. **Final Answer Formulation**:
     *   Synthesize information from tool outputs into a clear, concise answer.
     *   ALWAYS present financial figures with ₹ and Cr units (e.g., "₹123.45 Cr").
     *   For period queries with multiple dates:
@@ -2189,41 +2205,59 @@ if st.session_state.get("json_data") is not None:
                                 else:
                                     dependency_list = []
                                 
-                                # Process each dependency
+                                # Process each dependency for non-list values first
                                 for dep_id in dependency_list:
                                     if dep_id in step_outputs:
                                         previous_output = step_outputs[dep_id]
-                                        for key, value_template in processed_inputs.items():
-                                            if isinstance(value_template, str):
+                                        for key, value_template in list(processed_inputs.items()):  # Use list() to avoid dict size change during iteration
+                                            if isinstance(value_template, str) and key != "summary_points":
                                                 # General placeholder for direct data substitution
                                                 placeholder = f"[data_from_step_{dep_id}]"
                                                 if placeholder in value_template:
                                                     processed_inputs[key] = value_template.replace(placeholder, str(previous_output))
+                                                    value_template = processed_inputs[key]  # Update for next placeholder
                                                 
                                                 # Placeholder for analysis output
                                                 analysis_placeholder = f"[analysis_from_step_{dep_id}]"
                                                 if analysis_placeholder in value_template:
                                                     processed_inputs[key] = value_template.replace(analysis_placeholder, str(previous_output))
+                                                    value_template = processed_inputs[key]  # Update for next placeholder
                                                 
                                                 # Generic output placeholder
                                                 output_placeholder = f"[output_from_step_{dep_id}]"
                                                 if output_placeholder in value_template:
                                                     processed_inputs[key] = value_template.replace(output_placeholder, str(previous_output))
 
-                                            # Specific handling for lists like 'summary_points'
-                                            if key == "summary_points" and isinstance(value_template, list):
-                                                new_summary_points = []
-                                                for point_template in value_template:
-                                                    if isinstance(point_template, str):
-                                                        if f"[output_from_step_{dep_id}]" in point_template:
-                                                            new_summary_points.append(point_template.replace(f"[output_from_step_{dep_id}]", str(previous_output)))
-                                                        elif f"[data_from_step_{dep_id}]" in point_template:
-                                                            new_summary_points.append(point_template.replace(f"[data_from_step_{dep_id}]", str(previous_output)))
-                                                        else:
-                                                            new_summary_points.append(point_template)
-                                                    else:
-                                                        new_summary_points.append(point_template)
-                                                processed_inputs[key] = new_summary_points
+                                # Now handle summary_points separately, processing all dependencies
+                                if "summary_points" in processed_inputs and isinstance(processed_inputs["summary_points"], list):
+                                    new_summary_points = []
+                                    for point_template in processed_inputs["summary_points"]:
+                                        if isinstance(point_template, str):
+                                            new_point = point_template
+                                            # Process all dependencies for this point
+                                            for dep_id in dependency_list:
+                                                if dep_id in step_outputs:
+                                                    previous_output = step_outputs[dep_id]
+                                                    # Check for any placeholder pattern with this dependency
+                                                    for placeholder_pattern in [f"[output_from_step_{dep_id}]", f"[data_from_step_{dep_id}]", f"[analysis_from_step_{dep_id}]"]:
+                                                        if placeholder_pattern in new_point:
+                                                            # If the point is ONLY the placeholder, replace entirely
+                                                            if new_point.strip() == placeholder_pattern:
+                                                                new_point = str(previous_output)
+                                                                st.write(f"Debug: Replaced entire placeholder '{placeholder_pattern}' with output")
+                                                            # If it ends with the placeholder after a colon
+                                                            elif new_point.strip().endswith(": " + placeholder_pattern):
+                                                                prefix = new_point.replace(placeholder_pattern, "").strip().rstrip(":")
+                                                                new_point = f"{prefix}: {previous_output}"
+                                                                st.write(f"Debug: Replaced placeholder after colon in '{point_template[:50]}...'")
+                                                            # Otherwise replace inline
+                                                            else:
+                                                                new_point = new_point.replace(placeholder_pattern, str(previous_output))
+                                                                st.write(f"Debug: Replaced inline placeholder '{placeholder_pattern}'")
+                                            new_summary_points.append(new_point)
+                                        else:
+                                            new_summary_points.append(point_template)
+                                    processed_inputs["summary_points"] = new_summary_points
                             
                             st.write("Inputs for this step (after substitution):")
                             st.json(processed_inputs)
@@ -2617,115 +2651,165 @@ if st.session_state.get("json_data") is not None:
                                 fr_inputs = FinalResponseCompilationInputs(**processed_inputs)
                                 st.markdown("**Compiling Final Response...**")
                                 
+                                # Debug: Show what we received
+                                st.write("Debug: Summary points received:")
+                                for i, sp in enumerate(fr_inputs.summary_points):
+                                    sp_str = str(sp)
+                                    st.write(f"Point {i+1} (type: {type(sp).__name__}, length: {len(sp_str)})")
+                                    if len(sp_str) > 200:
+                                        st.write(f"  Content: {sp_str[:200]}...")
+                                    else:
+                                        st.write(f"  Content: {sp_str}")
+                                    
+                                    # Check if it looks like JSON
+                                    if sp_str.strip().startswith("{") and sp_str.strip().endswith("}"):
+                                        st.write("  ^ Looks like JSON data")
+                                    elif sp_str.strip().startswith("[") and not sp_str.strip().startswith("[output"):
+                                        st.write("  ^ Looks like a JSON array")
+                                    elif "[output_from_step" in sp_str or "[data_from_step" in sp_str:
+                                        st.write("  ^ Contains unreplaced placeholder!")
+                                
                                 # Enhanced compilation logic for different types of analysis
                                 response_parts = []
                                 
+                                # First, let's parse all JSON data from summary points
+                                parsed_data = {}
+                                for point in fr_inputs.summary_points:
+                                    point_str = str(point)
+                                    # Try to parse as JSON
+                                    try:
+                                        if point_str.startswith("{") and point_str.endswith("}"):
+                                            data = json.loads(point_str)
+                                            # Store parsed data by type
+                                            if "hero_areas" in data or "zero_areas" in data:
+                                                parsed_data["hero_zero"] = data
+                                            elif "trend_direction" in data:
+                                                parsed_data["trend"] = data
+                                            elif "success" in data and "chart" in str(data).lower():
+                                                parsed_data["visualization"] = data
+                                    except:
+                                        pass
+                                
                                 # Check for trend analysis
-                                if any("trend" in str(sp).lower() or "performance" in str(sp).lower() for sp in fr_inputs.summary_points):
+                                if parsed_data.get("trend") or any("trend" in str(sp).lower() for sp in fr_inputs.summary_points):
                                     # Handle trend analysis results
-                                    for point in fr_inputs.summary_points:
-                                        point_str = str(point)
-                                        
-                                        # Parse the analysis results if it's a JSON string
-                                        if "trend_direction" in point_str or "insights" in point_str:
-                                            try:
-                                                analysis_data = json.loads(point_str) if isinstance(point_str, str) else point_str
-                                                
-                                                # Format trend analysis results
-                                                if "metric" in analysis_data:
-                                                    response_parts.append(f"## {analysis_data['metric']} Analysis\n")
-                                                    response_parts.append(f"**Period Analyzed**: {analysis_data.get('period_analyzed', 'N/A')}")
-                                                    response_parts.append(f"**Data Points**: {analysis_data.get('data_points', 'N/A')}\n")
-                                                    
-                                                    # Trend summary
-                                                    trend = analysis_data.get('trend_direction', 'unknown').upper()
-                                                    change = analysis_data.get('overall_change', {})
-                                                    response_parts.append(f"### Trend: {trend}")
-                                                    if isinstance(change, dict):
-                                                        response_parts.append(f"- Overall Change: ₹{change.get('absolute', 0):.1f} Cr ({change.get('percentage', 0):+.1f}%)")
-                                                    
-                                                    # Performance metrics
-                                                    response_parts.append(f"\n### Performance Metrics")
-                                                    response_parts.append(f"- Starting Value: ₹{analysis_data.get('starting_value', 0):.1f} Cr")
-                                                    response_parts.append(f"- Ending Value: ₹{analysis_data.get('ending_value', 0):.1f} Cr")
-                                                    response_parts.append(f"- Average: ₹{analysis_data.get('average_value', 0):.1f} Cr")
-                                                    
-                                                    peak = analysis_data.get('peak', {})
-                                                    trough = analysis_data.get('trough', {})
-                                                    if peak and trough:
-                                                        response_parts.append(f"- Peak: ₹{peak.get('value', 0):.1f} Cr on {peak.get('date', 'N/A')}")
-                                                        response_parts.append(f"- Trough: ₹{trough.get('value', 0):.1f} Cr on {trough.get('date', 'N/A')}")
-                                                    
-                                                    # Key insights
-                                                    insights = analysis_data.get('insights', [])
-                                                    if insights:
-                                                        response_parts.append(f"\n### Key Insights")
-                                                        for insight in insights:
-                                                            response_parts.append(f"- {insight}")
-                                                    
-                                                    # Chart status
-                                                    if "success" in point_str and "chart" in point_str.lower():
-                                                        response_parts.append(f"\n✅ A visualization has been generated and displayed above.")
-                                                
-                                            except json.JSONDecodeError:
-                                                # If not JSON, just include the text
-                                                if not point_str.startswith("Financial analysis completed"):
-                                                    response_parts.append(point_str)
-                                        elif "success" in point_str and "chart" in point_str.lower():
-                                            # Visualization success message
-                                            try:
-                                                viz_result = json.loads(point_str) if isinstance(point_str, str) else point_str
-                                                if viz_result.get("success"):
-                                                    response_parts.append(f"\n✅ {viz_result.get('message', 'Chart generated successfully.')}")
-                                            except:
-                                                response_parts.append(point_str)
-                                        else:
-                                            # Other content
-                                            if not point_str.startswith("Cash Score data for") and not point_str.startswith("[output_from"):
-                                                response_parts.append(point_str)
+                                    if parsed_data.get("trend"):
+                                        analysis_data = parsed_data["trend"]
+                                        # Format trend analysis results
+                                        if "metric" in analysis_data:
+                                            response_parts.append(f"## {analysis_data['metric']} Analysis\n")
+                                            response_parts.append(f"**Period Analyzed**: {analysis_data.get('period_analyzed', 'N/A')}")
+                                            response_parts.append(f"**Data Points**: {analysis_data.get('data_points', 'N/A')}\n")
+                                            
+                                            # Trend summary
+                                            trend = analysis_data.get('trend_direction', 'unknown').upper()
+                                            change = analysis_data.get('overall_change', {})
+                                            response_parts.append(f"### Trend: {trend}")
+                                            if isinstance(change, dict):
+                                                response_parts.append(f"- Overall Change: ₹{change.get('absolute', 0):.1f} Cr ({change.get('percentage', 0):+.1f}%)")
+                                            
+                                            # Performance metrics
+                                            response_parts.append(f"\n### Performance Metrics")
+                                            response_parts.append(f"- Starting Value: ₹{analysis_data.get('starting_value', 0):.1f} Cr")
+                                            response_parts.append(f"- Ending Value: ₹{analysis_data.get('ending_value', 0):.1f} Cr")
+                                            response_parts.append(f"- Average: ₹{analysis_data.get('average_value', 0):.1f} Cr")
+                                            
+                                            peak = analysis_data.get('peak', {})
+                                            trough = analysis_data.get('trough', {})
+                                            if peak and trough:
+                                                response_parts.append(f"- Peak: ₹{peak.get('value', 0):.1f} Cr on {peak.get('date', 'N/A')}")
+                                                response_parts.append(f"- Trough: ₹{trough.get('value', 0):.1f} Cr on {trough.get('date', 'N/A')}")
+                                            
+                                            # Key insights
+                                            insights = analysis_data.get('insights', [])
+                                            if insights:
+                                                response_parts.append(f"\n### Key Insights")
+                                                for insight in insights:
+                                                    response_parts.append(f"- {insight}")
+                                    
+                                    # Add visualization status if present
+                                    if parsed_data.get("visualization", {}).get("success"):
+                                        response_parts.append(f"\n✅ {parsed_data['visualization'].get('message', 'Chart generated successfully.')}")
                                 
                                 # Check for Hero/Zero analysis
-                                elif any("hero" in str(sp).lower() or "zero" in str(sp).lower() for sp in fr_inputs.summary_points):
-                                    # Special formatting for Hero/Zero results
-                                    response_parts.append("## Hero and Zero Areas Analysis\n")
-                                    
+                                elif parsed_data.get("hero_zero") or any("hero" in str(sp).lower() or "zero" in str(sp).lower() for sp in fr_inputs.summary_points):
+                                    # Format Hero/Zero results
+                                    if parsed_data.get("hero_zero"):
+                                        data = parsed_data["hero_zero"]
+                                        response_parts.append("## Hero and Zero Areas Analysis\n")
+                                        
+                                        if "hero_areas" in data and data["hero_areas"]:
+                                            response_parts.append("### 🌟 Hero Areas (Top Performers):")
+                                            for hero in data["hero_areas"]:
+                                                response_parts.append(f"- **{hero['metric']}**: ₹{hero['value']:.2f} Cr")
+                                        
+                                        if "zero_areas" in data and data["zero_areas"]:
+                                            response_parts.append("\n### ⚠️ Zero Areas (Low Performers):")
+                                            for zero in data["zero_areas"]:
+                                                response_parts.append(f"- **{zero['metric']}**: ₹{zero['value']:.2f} Cr")
+                                        
+                                        # Add summary
+                                        total_analyzed = data.get("total_metrics_analyzed", 0)
+                                        if total_analyzed:
+                                            response_parts.append(f"\n*Total metrics analyzed: {total_analyzed}*")
+                                    else:
+                                        # If no parsed data but keywords present, show a message
+                                        response_parts.append("## Hero and Zero Areas Analysis")
+                                        response_parts.append("Analysis data is being processed. Please check the results above.")
+                                
+                                # Check for comparison analysis
+                                elif any("compar" in str(sp).lower() for sp in fr_inputs.summary_points):
+                                    # Look for comparison data in summary points
                                     for point in fr_inputs.summary_points:
                                         point_str = str(point)
-                                        if "hero_areas" in point_str or "zero_areas" in point_str:
+                                        if "comparison" in point_str or "metrics_compared" in point_str:
                                             try:
-                                                data = json.loads(point_str) if isinstance(point_str, str) else point_str
-                                                if "hero_areas" in data:
-                                                    response_parts.append("### 🌟 Hero Areas (Top Performers):")
-                                                    for hero in data["hero_areas"]:
-                                                        response_parts.append(f"- **{hero['metric']}**: ₹{hero['value']:.2f} Cr")
-                                                if "zero_areas" in data:
-                                                    response_parts.append("\n### ⚠️ Zero Areas (Low Performers):")
-                                                    for zero in data["zero_areas"]:
-                                                        response_parts.append(f"- **{zero['metric']}**: ₹{zero['value']:.2f} Cr")
+                                                if point_str.startswith("{"):
+                                                    comp_data = json.loads(point_str)
+                                                    response_parts.append(f"## {comp_data.get('comparison', 'Comparison Analysis')}")
+                                                    response_parts.append(f"*Metrics compared: {comp_data.get('metrics_compared', 0)}*\n")
+                                                    
+                                                    # Show top differences
+                                                    details = comp_data.get('details', [])
+                                                    if details:
+                                                        response_parts.append("### Key Differences:")
+                                                        for detail in details[:5]:
+                                                            metric = detail.get('metric', 'Unknown')
+                                                            better = detail.get('better_performer', 'N/A')
+                                                            pct = abs(detail.get('percentage_difference', 0))
+                                                            response_parts.append(f"- **{metric}**: {better} performs {pct:.1f}% better")
                                             except:
-                                                response_parts.append(point_str)
-                                        elif "turnarounds" in point_str:
-                                            try:
-                                                data = json.loads(point_str) if isinstance(point_str, str) else point_str
-                                                if "turnarounds" in data:
-                                                    response_parts.append("\n### 📊 Major Turnarounds:")
-                                                    for ta in data["turnarounds"][:5]:
-                                                        emoji = "📈" if ta["trend"] == "Improved" else "📉"
-                                                        response_parts.append(f"{emoji} **{ta['metric']}**: {ta['trend']} by {abs(ta['pct_change']):.1f}%")
-                                            except:
-                                                response_parts.append(point_str)
-                                        else:
-                                            response_parts.append(point_str)
+                                                pass
                                 
                                 else:
-                                    # Default compilation - filter out placeholder text
+                                    # Default compilation - show any remaining content
+                                    has_content = False
                                     for point in fr_inputs.summary_points:
                                         point_str = str(point)
                                         # Skip placeholders and redundant text
-                                        if not point_str.startswith("[output_from") and \
-                                           not point_str.startswith("Cash Score data for") and \
-                                           not point_str.startswith("Performance analysis:"):
-                                            response_parts.append(point_str)
+                                        if (not point_str.startswith("[output_from") and 
+                                            not point_str.startswith("[data_from") and
+                                            not point_str.startswith("Hero areas from") and
+                                            not point_str.startswith("Zero areas from") and
+                                            not point_str.startswith("Turnarounds in") and
+                                            point_str.strip()):
+                                            
+                                            # Try to parse and format any JSON data
+                                            if point_str.startswith("{") and point_str.endswith("}"):
+                                                try:
+                                                    data = json.loads(point_str)
+                                                    response_parts.append("### Analysis Results:")
+                                                    response_parts.append(f"```json\n{json.dumps(data, indent=2)}\n```")
+                                                    has_content = True
+                                                except:
+                                                    response_parts.append(point_str)
+                                                    has_content = True
+                                            else:
+                                                response_parts.append(point_str)
+                                                has_content = True
+                                    
+                                    if not has_content:
+                                        response_parts.append("Analysis completed. Please check the detailed results above.")
                                 
                                 # Join all parts with proper formatting
                                 if response_parts:
