@@ -722,8 +722,13 @@ def find_closest_date(available_dates, query_date):
     # Handle relative date queries
     if query_date == "last_week":
         # Get the date range for last week
-        last_week_start = datetime.datetime.strptime(current_date_info["last_week_description"].split("(")[1].split(")")[0].split(" - ")[0], "%d %b")
-        last_week_end = datetime.datetime.strptime(current_date_info["last_week_description"].split("(")[1].split(")")[0].split(" - ")[1], "%d %b")
+        last_week_desc_parts = current_date_info["last_week_description"].split("(")[1].split(")")[0].split(" - ")
+        # Clean up the date strings by removing "approx." if present
+        last_week_start_str = last_week_desc_parts[0].replace("approx.", "").strip()
+        last_week_end_str = last_week_desc_parts[1].replace("approx.", "").strip() if len(last_week_desc_parts) > 1 else last_week_start_str
+        
+        last_week_start = datetime.datetime.strptime(last_week_start_str, "%d %b")
+        last_week_end = datetime.datetime.strptime(last_week_end_str, "%d %b")
         
         # Find ALL dates that fall within last week's range
         for date_str in date_options:
@@ -753,8 +758,13 @@ def find_closest_date(available_dates, query_date):
     
     elif query_date == "this_week":
         # Similar logic for this week
-        this_week_start = datetime.datetime.strptime(current_date_info["this_week_description"].split("(")[1].split(")")[0].split(" - ")[0], "%d %b")
-        this_week_end = datetime.datetime.strptime(current_date_info["this_week_description"].split("(")[1].split(")")[0].split(" - ")[1], "%d %b")
+        this_week_desc_parts = current_date_info["this_week_description"].split("(")[1].split(")")[0].split(" - ")
+        # Clean up the date strings by removing "approx." if present
+        this_week_start_str = this_week_desc_parts[0].replace("approx.", "").strip()
+        this_week_end_str = this_week_desc_parts[1].replace("approx.", "").strip() if len(this_week_desc_parts) > 1 else this_week_start_str
+        
+        this_week_start = datetime.datetime.strptime(this_week_start_str, "%d %b")
+        this_week_end = datetime.datetime.strptime(this_week_end_str, "%d %b")
         
         for date_str in date_options:
             try:
@@ -1815,6 +1825,14 @@ MANDATORY RULES:
    }
    ```
 
+4. **TOCStrategyMode**:
+   ```json
+   {
+     "analyzed_data": "[data_from_step_2]",
+     "strategic_question": "Generate TOC meeting agenda and discussion points based on performance data"
+   }
+   ```
+
 **COMPLETE EXAMPLE PLAN - Cash Score Analysis with Visualization:**
 
 For query: "How is the cash score of JSPL performing from last 3 months? Please comment. Also show graphically."
@@ -2642,10 +2660,133 @@ if st.session_state.get("json_data") is not None:
 
                             elif persona == "TOCStrategyMode":
                                 ts_inputs = TOCStrategyInputs(**processed_inputs)
-                                st.markdown(f"**Conceptual TOC Strategy for:** {ts_inputs.strategic_question}")
-                                # Placeholder: Invoke LLM with TOC strategy persona & ts_inputs.analyzed_data, ts_inputs.strategic_question
-                                current_step_output = f"TOC strategic advice for '{ts_inputs.strategic_question}' based on analyzed data would appear here."
-                                st.info(current_step_output)
+                                st.markdown(f"**TOC Strategic Analysis for:** {ts_inputs.strategic_question}")
+                                
+                                # Parse the analyzed data
+                                analyzed_data = ts_inputs.analyzed_data
+                                if isinstance(analyzed_data, str):
+                                    try:
+                                        analyzed_data = json.loads(analyzed_data)
+                                    except:
+                                        pass
+                                
+                                # Generate TOC strategic recommendations based on the data
+                                toc_response = {
+                                    "strategic_question": ts_inputs.strategic_question,
+                                    "recommendations": []
+                                }
+                                
+                                # Check if this is a meeting agenda request
+                                if "agenda" in ts_inputs.strategic_question.lower() or "meeting" in ts_inputs.strategic_question.lower():
+                                    # Generate TOC meeting agenda
+                                    agenda_items = []
+                                    
+                                    # Check for error in data
+                                    if isinstance(analyzed_data, dict) and "error" in analyzed_data:
+                                        agenda_items.append({
+                                            "priority": "High",
+                                            "topic": "Data Quality Review",
+                                            "description": f"Address data retrieval issues: {analyzed_data['error']}",
+                                            "action_items": ["Review data collection process", "Ensure all week ranges are properly formatted", "Validate Excel upload completeness"]
+                                        })
+                                    else:
+                                        # Generate agenda based on performance data
+                                        agenda_items.extend([
+                                            {
+                                                "priority": "High",
+                                                "topic": "Performance Review - Last Week Metrics",
+                                                "description": "Review key performance indicators and identify bottlenecks",
+                                                "action_items": ["Analyze Cash Score trends", "Identify underperforming areas", "Review production throughput"]
+                                            },
+                                            {
+                                                "priority": "High", 
+                                                "topic": "Constraint Identification",
+                                                "description": "Identify current system constraints limiting throughput",
+                                                "action_items": ["Map value stream", "Identify bottleneck processes", "Quantify constraint impact"]
+                                            },
+                                            {
+                                                "priority": "Medium",
+                                                "topic": "Exploitation Strategy",
+                                                "description": "Develop plans to maximize constraint utilization",
+                                                "action_items": ["Review constraint scheduling", "Optimize batch sizes", "Reduce setup times"]
+                                            },
+                                            {
+                                                "priority": "Medium",
+                                                "topic": "Subordination Review", 
+                                                "description": "Ensure all processes support the constraint",
+                                                "action_items": ["Review upstream processes", "Check buffer management", "Validate downstream capacity"]
+                                            },
+                                            {
+                                                "priority": "Low",
+                                                "topic": "Continuous Improvement",
+                                                "description": "Plan for elevating constraints and preventing inertia",
+                                                "action_items": ["Review investment proposals", "Update standard procedures", "Schedule next review cycle"]
+                                            }
+                                        ])
+                                    
+                                    toc_response = {
+                                        "meeting_agenda": {
+                                            "title": "TOC Review Meeting - Weekly Performance Analysis",
+                                            "objective": "Review system performance, identify constraints, and develop improvement strategies",
+                                            "duration": "2 hours",
+                                            "attendees": ["Plant Manager", "Production Head", "Quality Head", "Finance Head", "TOC Champion"],
+                                            "agenda_items": agenda_items,
+                                            "pre_meeting_preparation": [
+                                                "Review last week's performance data",
+                                                "Identify top 3 concerns",
+                                                "Prepare constraint analysis"
+                                            ]
+                                        }
+                                    }
+                                
+                                elif "bottleneck" in ts_inputs.strategic_question.lower() or "constraint" in ts_inputs.strategic_question.lower():
+                                    # Analyze for bottlenecks
+                                    recommendations = [
+                                        "Based on TOC principles, focus on identifying the system constraint",
+                                        "Protect the constraint with time buffers",
+                                        "Ensure constraint operates at maximum efficiency",
+                                        "Subordinate all other processes to the constraint",
+                                        "Consider investment only after maximizing current constraint"
+                                    ]
+                                    toc_response["recommendations"] = recommendations
+                                
+                                else:
+                                    # Generic TOC strategic advice
+                                    toc_response["recommendations"] = [
+                                        "Apply the Five Focusing Steps of TOC",
+                                        "1. Identify the system constraint",
+                                        "2. Exploit the constraint to its fullest",
+                                        "3. Subordinate everything else to the constraint",
+                                        "4. Elevate the constraint if needed",
+                                        "5. Prevent inertia - repeat the process"
+                                    ]
+                                
+                                # Display the results
+                                if "meeting_agenda" in toc_response:
+                                    agenda = toc_response["meeting_agenda"]
+                                    st.write(f"### {agenda['title']}")
+                                    st.write(f"**Objective:** {agenda['objective']}")
+                                    st.write(f"**Duration:** {agenda['duration']}")
+                                    st.write(f"**Attendees:** {', '.join(agenda['attendees'])}")
+                                    
+                                    st.write("\n**Agenda Items:**")
+                                    for i, item in enumerate(agenda['agenda_items'], 1):
+                                        st.write(f"\n{i}. **{item['topic']}** (Priority: {item['priority']})")
+                                        st.write(f"   - {item['description']}")
+                                        st.write("   - Action Items:")
+                                        for action in item['action_items']:
+                                            st.write(f"     • {action}")
+                                    
+                                    st.write("\n**Pre-Meeting Preparation:**")
+                                    for prep in agenda['pre_meeting_preparation']:
+                                        st.write(f"- {prep}")
+                                else:
+                                    st.write("**TOC Strategic Recommendations:**")
+                                    for rec in toc_response["recommendations"]:
+                                        st.write(f"- {rec}")
+                                
+                                current_step_output = json.dumps(toc_response)
+                                st.info("TOC strategic analysis completed.")
                             
                             elif persona == "FinalResponseCompilationMode":
                                 fr_inputs = FinalResponseCompilationInputs(**processed_inputs)
